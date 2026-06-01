@@ -1,0 +1,33 @@
+{
+  "name": "@app/ag-grid-common",
+  "version": "1.0.0",
+  "description": "Reusable AG Grid base class and table component for Angular 20",
+  "scripts": {
+    "start": "ng serve demo",
+    "build": "npm run build:lib && ng build demo",
+    "build:lib": "ng-packagr -p ng-package.json",
+    "build:demo": "ng build demo"
+  },
+  "peerDependencies": {
+    "@angular/common": "^20.0.0",
+    "@angular/core": "^20.0.0",
+    "ag-grid-angular": "^35.0.0",
+    "ag-grid-community": "^35.0.0",
+    "rxjs": "^7.8.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.0.0",
+    "@angular/cli": "^20.0.0",
+    "@angular/common": "^20.0.0",
+    "@angular/compiler": "^20.0.0",
+    "@angular/compiler-cli": "^20.0.0",
+    "@angular/core": "^20.0.0",
+    "@angular/platform-browser": "^20.0.0",
+    "ag-grid-angular": "^35.3.0",
+    "ag-grid-community": "^35.3.0",
+    "ng-packagr": "^20.0.0",
+    "rxjs": "^7.8.0",
+    "typescript": "~5.8.0",
+    "zone.js": "^0.15.0"
+  }
+}
