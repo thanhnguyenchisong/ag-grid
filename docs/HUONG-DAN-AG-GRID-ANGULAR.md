@@ -46,7 +46,7 @@ Mỗi thuộc tính/config được trình bày theo **5 câu hỏi master**:
 - [Bài 9: Nhận diện cột — field, colId, headerName](#bài-9-nhận-diện-cột)
 - [Bài 10: Kích thước — width, flex, pinned](#bài-10-kích-thước-cột)
 - [Bài 11: Sort & filter sâu](#bài-11-sort--filter-sâu)
-- [Bài 12: Value pipeline — getter, formatter, setter, parser](#bài-12-value-pipeline)
+- [Bài 12: Value pipeline — cài đặt & thời điểm chạy](#bài-12-value-pipeline--cài-đặt--thời-điểm-chạy)
 - [Bài 13: Renderer & Editor](#bài-13-renderer--editor)
 - [Bài 14: Cột đặc biệt — checkbox, actions, ẩn cột](#bài-14-cột-đặc-biệt)
 
@@ -78,7 +78,7 @@ Mỗi thuộc tính/config được trình bày theo **5 câu hỏi master**:
 - [D: Debug playbook](#phụ-lục-d-debug)
 - [E: Bảng Cell Editor built-in](#phụ-lục-e-cell-editor-built-in)
 - [F: Bảng map filterModel → SQL/OData](#phụ-lục-f-map-filtermodel--sqlodata)
-- [G: So sánh pattern Master/Detail](#phụ-lục-g-so-sánh-pattern-masterdetail)
+- [H: Timeline — method nào chạy khi nào](#phụ-lục-h-timeline--method-nào-chạy-khi-nào)
 
 ---
 
@@ -688,7 +688,42 @@ onCellValueChanged: (e) => {
 
 ## Bài 8: Context, components, getRowId
 
-### 8.1 `context`
+### 8.1 `context` — cài đặt & khi nào đọc được
+
+**Cài đặt — một trong các cách:**
+
+```typescript
+// Cách 1: AgGridBase constructor
+super({
+  id: 'orders-grid',
+  context: {
+    canEdit: true,
+    onDelete: (row) => this.deleteRow(row),
+  },
+});
+
+// Cách 2: getDefaultGridOptions
+protected override getDefaultGridOptions() {
+  return {
+    ...super.getDefaultGridOptions(),
+    context: { canEdit: this.auth.canEdit() },
+  };
+}
+
+// Cách 3: runtime (hiếm)
+this.requireApi().setGridOption('context', { canEdit: false });
+this.requireApi().refreshCells({ force: true });
+```
+
+**Khi nào code đọc `context`:**
+
+| Thời điểm | Ai đọc | Cách đọc |
+|-----------|--------|----------|
+| Cell render lần đầu | `cellRenderer` | `agInit(params)` → `params.context` |
+| Value getter / formatter | ColDef callback | `params.context` |
+| `onGridReady` plugin | Plugin | `event.context` hoặc `api.getGridOption('context')` |
+
+**Không tự refresh** khi đổi context — phải `refreshCells` nếu renderer phụ thuộc context.
 
 ```typescript
 gridOptions: {
@@ -703,7 +738,7 @@ gridOptions: {
 |---|---|
 | **Là gì** | Object tùy ý truyền xuống renderers/editors/queries |
 | **Tại sao cần** | Cell renderer **không inject** Angular service dễ dàng — context là cầu nối |
-| **Dùng khi nào** | 🟢 Mọi custom renderer cần gọi hàm parent |
+| **Dùng khi nào** | 🟢 Callback từ page, permission chung cả grid |
 
 **Trong renderer:**
 
@@ -713,7 +748,7 @@ agInit(params: ICellRendererParams) {
 }
 ```
 
-🟡 **Angular way tốt hơn:** Inject service trực tiếp trong standalone renderer component — context dùng cho callback/handler cụ thể row.
+🟡 **Angular way tốt hơn:** Inject service trong standalone renderer — context cho callback/handler cụ thể.
 
 ---
 
@@ -955,111 +990,506 @@ Cần `filter: true` trên cùng cột.
 
 ---
 
-## Bài 12: Value pipeline
+## Bài 12: Value pipeline — cài đặt & thời điểm chạy
 
-Đây là **pipeline** xử lý giá trị cell — master phải thuộc lòng:
+Bài này trả lời hai câu hỏi thực tế:
+
+1. **Cài ở đâu, cấu hình thế nào?** (trong ColDef, AgGridBase, file nào)
+2. **Method chạy lúc nào?** (load data, scroll, sort, filter, export…)
+
+### 12.0 Bảng so sánh nhanh
+
+| API | Khai báo trong | Bạn có gọi tay? | Chạy khi nào (tóm tắt) | Ghi vào `rowData`? |
+|-----|----------------|-----------------|------------------------|-------------------|
+| `field` | `ColDef` | Không | Grid đọc `data[field]` mỗi lần cần giá trị | Không (chỉ đọc) |
+| `valueGetter` | `ColDef` | Không — AG Grid gọi | Sort, filter, hiển thị, export* | Không |
+| `valueFormatter` | `ColDef` | Không — AG Grid gọi | **Chỉ hiển thị** text trên UI | Không |
+| `cellRenderer` | `ColDef` | Không — grid mount component / gọi function | Cell **visible** cần vẽ lại | Không |
+| `valueParser` | `ColDef` | Không | User **commit** edit | Không (chuẩn bị ghi) |
+| `valueSetter` | `ColDef` | Không | Sau parser, trước ghi data | **Có** (nếu bạn ghi) |
+
+\* Export CSV mặc định dùng giá trị logic (sau getter), không qua formatter — trừ khi dùng `processCellCallback`.
+
+**Pipeline hiển thị (đọc):**
 
 ```
-         ┌─────────────┐
-  data ──│ valueGetter │──► giá trị "logic" (sort/filter dùng)
-         └─────────────┘
-                │
-         ┌──────▼──────┐
-         │valueFormatter│──► text hiển thị (chỉ UI)
-         └─────────────┘
-                │
-         ┌──────▼──────┐
-         │ cellRenderer │──► HTML/component (tùy chọn override display)
-         └─────────────┘
-
-  Edit flow ngược lại:
-  user input → valueParser → valueSetter → ghi vào data
+rowData (data object)
+    ↓
+[field] hoặc valueGetter(params)     ← giá trị "logic" (sort/filter dùng)
+    ↓
+valueFormatter(params)                 ← string hiển thị (nếu có)
+    ↓
+cellRenderer (nếu có)                  ← thay UI (badge, button…) — có thể bỏ qua formatter text
 ```
+
+**Quan trọng:** Bạn **không** gọi `valueGetter(...)` trong app. Chỉ **khai báo function** trong `ColDef` — AG Grid gọi khi cần.
 
 ---
 
-### 12.1 `valueGetter`
+### 12.1 Baseline: chỉ dùng `field` (không getter/formatter/renderer)
+
+**Cài đặt — trong `buildColumnDefs()`:**
 
 ```typescript
-valueGetter: (p) => `${p.data?.firstName ?? ''} ${p.data?.lastName ?? ''}`.trim(),
+// orders-grid.service.ts
+protected override buildColumnDefs(): ColDef<OrderRow>[] {
+  return [
+    this.columns.text({ field: 'orderNo', headerName: 'Mã đơn' }),
+  ];
+}
 ```
 
-| | |
-|---|---|
-| **Là gì** | Tính giá trị **không có sẵn** trong một field |
-| **Tại sao cần** | Full name, tổng từ nhiều field, nested object |
-| **Dùng khi nào** | Cột derived — **không** muốn duplicate data trên server |
-| **Sort/filter** | Dựa trên **kết quả getter** |
+**Khi nào grid đọc `field`:**
 
-🔴 **Không dùng** getter chỉ để format tiền tệ — dùng `valueFormatter`.
+| Sự kiện | Grid làm gì |
+|---------|-------------|
+| `setRowData()` / SSRM `success()` | Chuẩn bị render các cell |
+| Scroll (virtual) | Cell vào viewport → đọc `data.orderNo` |
+| Sort cột | So sánh `data.orderNo` |
+| Filter cột | So sánh `data.orderNo` với điều kiện filter |
+| Export CSV | Xuất `data.orderNo` (trừ khi override) |
 
 ---
 
-### 12.2 `valueFormatter`
+### 12.2 `valueGetter` — cài đặt & lifecycle
+
+#### Dùng khi nào?
+
+Cột **không** map 1 field — giá trị **tính từ** data (full name, nested object, nối chuỗi).
+
+#### Cài đặt — 3 bước
+
+**Bước 1 — Row type có đủ field nguồn:**
 
 ```typescript
-valueFormatter: (p) =>
-  p.value != null ? new Intl.NumberFormat('vi-VN').format(p.value) + ' ₫' : '',
+export interface UserRow extends Record<string, unknown> {
+  firstName: string;
+  lastName: string;
+}
 ```
 
-| | |
-|---|---|
-| **Là gì** | Format **hiển thị** — data gốc không đổi |
-| **Tại sao cần** | Sort vẫn theo số thô, UI hiện "1.000.000 ₫" |
-| **Dùng khi nào** | Date format, currency, percentage |
+**Bước 2 — Thêm vào ColDef (không cần `field`, hoặc có `field` nhưng getter override):**
 
-Factory `date()` dùng `valueFormatter` + `agDateColumnFilter`.
+```typescript
+{
+  colId: 'fullName',
+  headerName: 'Họ tên',
+  valueGetter: (params) => {
+    const d = params.data;
+    if (!d) return '';
+    return `${d.firstName ?? ''} ${d.lastName ?? ''}`.trim();
+  },
+  sortable: true,
+  filter: true,
+}
+```
+
+**Bước 3 — Trong AgGridBase, đặt trong `buildColumnDefs()`:**
+
+```typescript
+protected override buildColumnDefs(): ColDef<UserRow>[] {
+  return [
+    {
+      colId: 'fullName',
+      headerName: 'Họ tên',
+      flex: 2,
+      valueGetter: (p) =>
+        `${p.data?.firstName ?? ''} ${p.data?.lastName ?? ''}`.trim(),
+    },
+    this.columns.text({ field: 'email' }),
+  ];
+}
+```
+
+Không cần file riêng, không import thêm module — **chỉ là property function trên ColDef**.
+
+#### `params` thường dùng trong getter
+
+```typescript
+valueGetter: (params) => {
+  params.data;      // object dòng hiện tại
+  params.node;      // row node (index, selected…)
+  params.colDef;    // ColDef cột này
+  params.api;       // GridApi
+  params.context;   // context grid (Bài 8)
+  params.getValue;  // gọi getter mặc định nếu có field
+}
+```
+
+#### Khi nào `valueGetter` ** được gọi**?
+
+```
+setRowData / data update
+    → Grid refresh cells affected
+        → Với mỗi cell cột đó (visible hoặc cần sort/filter):
+            → valueGetter(params)   ← CHẠY TẠI ĐÂY
+
+User click sort header
+    → Grid sort theo KẾT QUẢ valueGetter (không phải formatter)
+
+User mở filter / floating filter
+    → Filter so sánh KẾT QUẢ valueGetter
+
+Scroll row vào viewport
+    → Render cell → valueGetter (nếu cần giá trị logic trước formatter)
+```
+
+| Hành động user | `valueGetter` chạy? |
+|----------------|---------------------|
+| Mở trang, load data | ✅ (mỗi cell render) |
+| Scroll | ✅ (cell mới visible) |
+| Sort cột | ✅ (để so sánh) |
+| Filter | ✅ |
+| Chỉ hover cell | ❌ |
+| Click nút trong cellRenderer | ❌ (trừ khi grid refresh cell) |
+
+#### 🔴 Lỗi thường gặp
+
+- Dùng getter chỉ để format `"1.000 ₫"` → dùng `valueFormatter` (sort sẽ sai).
+- Quên `colId` khi không có `field` → khó debug filter/export.
+- Trong getter gọi HTTP → chạy hàng nghìn lần khi scroll — **cấm**.
 
 ---
 
-### 12.3 `valueParser` + `valueSetter` (edit)
+### 12.3 `valueFormatter` — cài đặt & lifecycle
 
-| | |
-|---|---|
-| `valueParser` | Chuỗi user nhập → kiểu đúng (trim, parse number) |
-| `valueSetter` | Ghi vào field khác, hoặc split full name → first/last |
+#### Dùng khi nào?
 
-**Dùng khi nào:** Inline edit cột computed hoặc cần transform input.
+Data **đã có** trong `field` (hoặc sau getter), chỉ cần **đổi cách hiển thị** — tiền tệ, ngày, phần trăm.
+
+#### Cài đặt — 3 bước
+
+**Bước 1 — Cột có `field` (hoặc getter trả về number/date):**
+
+```typescript
+{
+  field: 'total',
+  headerName: 'Tổng tiền',
+  filter: 'agNumberColumnFilter',
+  valueFormatter: (params) => {
+    if (params.value == null) return '';
+    return new Intl.NumberFormat('vi-VN').format(Number(params.value)) + ' ₫';
+  },
+}
+```
+
+**Bước 2 — Hoặc dùng factory repo (đã gói formatter):**
+
+```typescript
+this.columns.number('total', { headerName: 'Tổng tiền' });
+this.columns.date('createdAt', { headerName: 'Ngày tạo' });
+```
+
+**Bước 3 — Không cần đăng ký gì thêm** — chỉ property trên ColDef.
+
+#### `params.value` trong formatter là gì?
+
+```
+Nếu có field:        params.value = data.total
+Nếu có valueGetter:  params.value = kết quả getter
+```
+
+Formatter **nhận giá trị logic**, trả **string hiển thị**.
+
+#### Khi nào `valueFormatter` **chạy**?
+
+```
+Cell cần HIỂN THỊ text (default cell hoặc trước renderer)
+    → Grid đã có value (field/getter)
+    → valueFormatter(params)  ← CHẠY
+    → String đặt lên DOM (nếu không có custom renderer override)
+```
+
+| Hành động | `valueFormatter` chạy? | Ghi chú |
+|-----------|------------------------|---------|
+| Render / scroll cell vào view | ✅ | Mỗi lần vẽ cell |
+| Sort | ❌ | Sort dùng giá trị **trước** formatter |
+| Filter number/date | ❌ | Filter dùng giá trị gốc |
+| Export CSV mặc định | ❌* | Xuất số thô `1000000` |
+| `refreshCells()` | ✅ | Re-format |
+
+\* Muốn export đã format → `exportDataAsCsv({ processCellCallback })`.
+
+#### So sánh trực tiếp getter vs formatter
+
+Cùng data `{ total: 1000000 }`:
+
+```typescript
+// ❌ SAI — sort/filter coi như string
+valueGetter: (p) => new Intl.NumberFormat('vi-VN').format(p.data.total) + ' ₫',
+
+// ✅ ĐÚNG
+field: 'total',
+valueFormatter: (p) => new Intl.NumberFormat('vi-VN').format(p.value) + ' ₫',
+```
 
 ---
 
-### 12.4 Khi nào dùng cái gì? (decision tree)
+### 12.4 `cellRenderer` — cài đặt & lifecycle
+
+#### Dùng khi nào?
+
+UI **không phải text thuần**: badge màu, avatar, progress bar, **nút bấm Angular**.
+
+#### Ba cách cài — chọn một
+
+| Cách | Cài đặt | Khi nào dùng |
+|------|---------|--------------|
+| **A. Function** | `cellRenderer: (p) => '<span>...</span>'` | Badge HTML đơn giản, không event |
+| **B. Angular component** | `cellRenderer: MyRenderer` + class `@Component` | Nút, inject service — **production** |
+| **C. String registry** | `components: { x: MyRenderer }` + `cellRenderer: 'x'` | Nhiều cột dùng chung tên |
+
+---
+
+#### Cách A — Function renderer (nhanh, không `agInit`)
+
+**Cài trong ColDef:**
+
+```typescript
+{
+  field: 'status',
+  headerName: 'Trạng thái',
+  cellRenderer: (params) => {
+    const color = params.value === 'paid' ? 'green' : 'orange';
+    return `<span style="color:${color}">${params.value ?? ''}</span>`;
+  },
+}
+```
+
+**Khi nào chạy:** Mỗi lần grid **vẽ lại cell** (scroll vào view, data đổi, `refreshCells`).
+
+- Function được **gọi trực tiếp** bởi AG Grid — không có `agInit`.
+- Return string HTML → grid gắn vào DOM.
+
+---
+
+#### Cách B — Angular component (có `agInit`) — hướng dẫn đủ 5 bước
+
+**Bước 1 — Tạo file component:**
+
+```typescript
+// status-badge.renderer.ts
+import { Component } from '@angular/core';
+import type { ICellRendererAngularComp } from 'ag-grid-angular';
+import type { ICellRendererParams } from 'ag-grid-community';
+
+@Component({
+  standalone: true,
+  template: `
+    <span class="badge" [style.background]="color">{{ label }}</span>
+  `,
+  styles: [`.badge { padding: 2px 8px; border-radius: 4px; color: #fff; }`],
+})
+export class StatusBadgeRenderer implements ICellRendererAngularComp {
+  label = '';
+  color = 'gray';
+
+  // ← AG Grid GỌI — bạn KHÔNG gọi tay
+  agInit(params: ICellRendererParams): void {
+    this.applyParams(params);
+  }
+
+  // ← AG Grid GỌI khi data cell đổi — return false = destroy & agInit lại
+  refresh(params: ICellRendererParams): boolean {
+    this.applyParams(params);
+    return true; // hoặc false nếu muốn grid tạo mới component
+  }
+
+  private applyParams(params: ICellRendererParams): void {
+    const v = params.value as string;
+    this.label = v ?? '';
+    this.color = v === 'paid' ? '#16a34a' : v === 'pending' ? '#ea580c' : '#6b7280';
+  }
+}
+```
+
+**Bước 2 — Gắn vào ColDef trong `buildColumnDefs()`:**
+
+```typescript
+import { StatusBadgeRenderer } from './status-badge.renderer';
+
+protected override buildColumnDefs(): ColDef<OrderRow>[] {
+  return [
+    {
+      field: 'status',
+      headerName: 'Trạng thái',
+      cellRenderer: StatusBadgeRenderer,  // ← class, không gọi new
+    },
+  ];
+}
+```
+
+**Bước 3 — Không cần khai báo trong `imports` của page** — `ag-grid-angular` tự mount component vào cell.
+
+**Bước 4 — (Tùy chọn) Truyền thêm config:**
+
+```typescript
+{
+  field: 'status',
+  cellRenderer: StatusBadgeRenderer,
+  cellRendererParams: {
+    colorMap: { paid: '#16a34a', pending: '#ea580c' },
+  },
+}
+```
+
+Trong `agInit`: `params.colorMap` hoặc merge từ `cellRendererParams`.
+
+**Bước 5 — Chạy grid** → scroll tới row → **`agInit` tự chạy**.
+
+#### Timeline lifecycle — Angular `cellRenderer`
+
+```
+Grid khởi tạo + có rowData
+    ↓
+Cell (row 5, cột status) vào viewport
+    ↓
+AG Grid thấy cellRenderer: StatusBadgeRenderer
+    ↓
+ag-grid-angular tạo instance component
+    ↓
+agInit(params)                    ← LẦN 1: init state từ params.data/value
+    ↓
+Template render (badge hiện lên)
+    ↓
+--- user scroll cell ra khỏi view → component có thể bị destroy (virtual) ---
+--- user scroll lại → agInit chạy lại ---
+    ↓
+Data row update (setRowData / transaction)
+    ↓
+refresh(params) được gọi
+    ├─ return true  → bạn cập nhật UI, giữ component
+    └─ return false → destroy component → agInit lại lần mới
+```
+
+| Sự kiện | `agInit` | `refresh` |
+|---------|----------|-----------|
+| Cell lần đầu visible | ✅ | — |
+| Scroll away rồi back | ✅ (thường tạo mới) | — |
+| `setRowData` thay cả list | ✅ (cells re-render) | có thể ✅ |
+| `refreshCells({ rowNodes, columns })` | — | ✅ |
+| Sort / filter (không đổi data object) | — | có thể ✅ |
+
+---
+
+### 12.5 Ví dụ một cột dùng cả ba — thứ tự thực tế
+
+Yêu cầu: cột **Tổng** = `price * qty`, hiển thị tiền VN, badge đỏ nếu > 10 triệu.
+
+```typescript
+{
+  colId: 'lineTotal',
+  headerName: 'Thành tiền',
+  sortable: true,
+  filter: 'agNumberColumnFilter',
+
+  // 1) Tính giá trị logic — CHẠY khi sort/filter/render
+  valueGetter: (p) => {
+    const d = p.data;
+    if (!d) return 0;
+    return Number(d.price ?? 0) * Number(d.qty ?? 0);
+  },
+
+  // 2) Format text — CHẠY khi hiển thị (nếu không bị renderer che)
+  valueFormatter: (p) =>
+    p.value != null ? new Intl.NumberFormat('vi-VN').format(p.value) + ' ₫' : '',
+
+  // 3) UI tùy chỉnh — agInit CHẠY khi cell visible
+  cellRenderer: LineTotalBadgeRenderer,
+  // Renderer nên đọc params.value (đã qua getter), tự format lại nếu cần
+}
+```
+
+**Thứ tự AG Grid xử lý khi vẽ cell:**
+
+```
+valueGetter() → params.value = 15000000
+    → valueFormatter() → "15.000.000 ₫" (default text path)
+    → cellRenderer agInit/get value → renderer tự vẽ (thường IGNORE text đã format)
+```
+
+🟢 **Best practice:** Renderer đọc `params.value` (số) và tự format — tránh duplicate formatter + renderer cùng format.
+
+---
+
+### 12.6 `valueParser` + `valueSetter` — chỉ khi **edit**
+
+**Cài đặt:**
+
+```typescript
+{
+  field: 'total',
+  editable: true,
+  valueParser: (p) => Number(String(p.newValue).replace(/\D/g, '')) || 0,
+  valueSetter: (p) => {
+    p.data.total = p.newValue;
+    return true; // true = chấp nhận ghi
+  },
+}
+```
+
+**Timeline edit (user double-click cell):**
+
+```
+User double-click
+    → cellEditor mở (agInit editor)
+User sửa + Enter
+    → valueParser(newValue)     ← chuẩn hóa input
+    → valueSetter               ← ghi vào data
+    → onCellValueChanged        ← hook save API (GridOptions)
+    → valueFormatter / renderer refresh cell
+```
+
+---
+
+### 12.7 Khi nào dùng cái gì? (decision tree)
 
 ```
 Cột map 1 field data?
   ├─ Có → dùng field
   │     └─ Chỉ đổi format hiển thị? → valueFormatter
-  │     └─ Cần badge/HTML? → cellRenderer (+ formatter nếu cần)
+  │     └─ Cần badge/HTML/nút? → cellRenderer (đọc params.value)
   └─ Không → valueGetter
         └─ Cần edit ghi ngược? → valueSetter + editable
 ```
 
 ---
 
-## Bài 13: Renderer & Editor
+### 12.8 Checklist debug “method không chạy”
 
-### 13.1 `cellRenderer`
+| Triệu chứng | Kiểm tra |
+|-------------|----------|
+| Getter không chạy | ColDef có đúng cột? Có `field` override getter? |
+| Formatter không đổi UI | Đã có `cellRenderer` che mất text mặc định? |
+| `agInit` không chạy | `cellRenderer` trỏ đúng class? Component có `@Component`? |
+| Sort sai | Đang format trong getter thay vì formatter? |
+| Edit không lưu | Thiếu `valueSetter` / `editable`? |
+
+---
+
+## Bài 13: Renderer & Editor (bổ sung)
+
+> Chi tiết **cài đặt + lifecycle** `cellRenderer`: xem [Bài 12.4](#124-cellrenderer--cài-đặt--lifecycle).  
+> Chi tiết **edit pipeline**: xem [Bài 12.6](#126-valueparser--valuesetter--chỉ-khi-edit).
+
+### 13.1 `cellRenderer` — tóm tắt
 
 | | |
 |---|---|
 | **Là gì** | Custom **hiển thị** cell |
-| **Tại sao cần** | Text thuần không đủ — badge, avatar, progress bar, buttons |
-| **Dùng khi nào** | Mọi UI cell không phải plain text |
+| **Cài ở đâu** | Property `cellRenderer` trên `ColDef` trong `buildColumnDefs()` |
+| **Ai gọi** | AG Grid — **không** gọi tay |
+| **Chạy khi** | Cell visible / data đổi / `refreshCells` |
 
-**3 dạng:**
+**3 dạng** (chi tiết Bài 12.4):
 
 ```typescript
-// 1. Function trả string HTML — nhanh, không event Angular
-cellRenderer: (p) => `<span class="badge">${p.value}</span>`
-
-// 2. Class component AG Grid
-cellRenderer: StatusBadgeRenderer
-
-// 3. String registry
-cellRenderer: 'statusBadge'  // + components: { statusBadge: ... }
+cellRenderer: (p) => `<span>...</span>`           // function — gọi mỗi lần vẽ
+cellRenderer: StatusBadgeRenderer                  // Angular — agInit + refresh
+cellRenderer: 'statusBadge'                        // + gridOptions.components
 ```
 
-🟡 Function HTML: **không** bind `(click)` Angular — dùng `onCellClicked` trên ColDef hoặc Angular component.
+🟡 Function HTML: không bind `(click)` Angular — dùng `onCellClicked` hoặc Angular component.
 
 ---
 
@@ -1327,26 +1757,28 @@ ngOnDestroy(): void {
 
 ## Bài 18: Angular component trong cell
 
-### 18.1 `ICellRendererAngularComp`
+> Xem đầy đủ 5 bước cài + timeline `agInit`/`refresh`: [Bài 12.4](#124-cellrenderer--cài-đặt--lifecycle).
+
+### 18.1 `ICellRendererAngularComp` — tóm tắt
 
 ```typescript
 export class EditButtonRenderer implements ICellRendererAngularComp {
   private params!: ICellRendererParams;
 
   agInit(params: ICellRendererParams): void {
-    this.params = params;
+    this.params = params;  // AG Grid gọi — không gọi tay
   }
 
   refresh(): boolean {
-    return false; // 🟢 không reuse — grid destroy/recreate
+    return false;
   }
 }
 ```
 
-| Method | Là gì | Tại sao |
-|--------|-------|---------|
-| `agInit` | Nhận params lần đầu | Setup state |
-| `refresh` | Grid hỏi có update in-place không | `false` = an toàn; `true` = performance nếu handle được |
+| Method | Ai gọi | Khi nào |
+|--------|--------|---------|
+| `agInit` | AG Grid | Cell lần đầu cần component (scroll vào view) |
+| `refresh` | AG Grid | Data cell đổi — return `false` = tạo mới + `agInit` lại |
 
 ---
 
@@ -3467,6 +3899,69 @@ this.use(csvExportPlugin('orders'));
 | set | (values) | `IN (...)` | `field_in=a,b,c` |
 
 🔴 Luôn **whitelist** tên cột trước khi build SQL.
+
+---
+
+# Phụ lục H: Timeline — method nào chạy khi nào
+
+Bảng tra nhanh khi debug “sao hàm của tôi không chạy?”.
+
+## H.1 Load trang lần đầu (client-side)
+
+| Thứ tự | Sự kiện | Method / callback chạy |
+|--------|---------|------------------------|
+| 1 | `<app-ag-grid-table>` init | `AgGridTableComponent.ngOnInit` → `getTableGridOptions()` |
+| 2 | Grid DOM ready | `onGridReady` → `AgGridBase.handleGridReady` → `onGridReady()` feature |
+| 3 | Feature gọi API | `setRowData(rows)` |
+| 4 | Grid vẽ cell visible | `valueGetter` → `valueFormatter` → `cellRenderer` / `agInit` |
+| 5 | Cột fit width | `onFirstDataRendered` → `sizeColumnsToFit()` |
+
+## H.2 User scroll (virtual)
+
+| Hành động | Chạy gì |
+|-----------|---------|
+| Row mới vào viewport | `valueGetter` → `valueFormatter` → `cellRenderer` function **hoặc** `agInit` |
+| Row ra khỏi viewport | Component renderer có thể **destroy** |
+
+## H.3 User sort / filter
+
+| API ColDef | Sort | Filter | Re-render cell |
+|------------|------|--------|----------------|
+| `field` | đọc field | đọc field | ✅ |
+| `valueGetter` | ✅ gọi getter | ✅ gọi getter | ✅ |
+| `valueFormatter` | ❌ | ❌ | ✅ (sau khi sort/filter) |
+| `cellRenderer` | ❌ trực tiếp | ❌ trực tiếp | ✅ (`refresh` hoặc `agInit` lại) |
+
+## H.4 User edit cell
+
+| Bước | Method |
+|------|--------|
+| Double-click | `cellEditor` `agInit` |
+| Enter / blur commit | `valueParser` → `valueSetter` → `onCellValueChanged` |
+| Cell hiển thị lại | `valueFormatter` / `cellRenderer.refresh` |
+
+## H.5 Bạn gọi GridApi
+
+| API call | Effect |
+|----------|--------|
+| `setRowData()` | Re-render nhiều cell → getter/formatter/renderer |
+| `applyTransaction({ update })` | Chỉ affected rows |
+| `refreshCells({ force: true })` | Formatter + `refresh()` renderer |
+| `setGridOption('context', x)` | **Không** auto refresh — cần `refreshCells` |
+
+## H.6 Ai gọi ai — tóm tắt
+
+```
+BẠN viết:     ColDef.valueGetter = (params) => { ... }
+AG Grid gọi:  khi cần giá trị logic (sort, filter, render pipeline)
+
+BẠN viết:     ColDef.valueFormatter = (params) => { ... }
+AG Grid gọi:  khi cần text hiển thị (default cell)
+
+BẠN viết:     class Renderer { agInit(params) { ... } }
+AG Grid gọi:  agInit khi mount component vào cell
+              refresh khi data cell đổi
+```
 
 ---
 
