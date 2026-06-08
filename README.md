@@ -4,6 +4,8 @@ One reusable **`AgGridBase`** class and **`AgGridTableComponent`** for every fea
 
 **Kế hoạch ý tưởng chi tiết (tiếng Việt):** [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 
+**Hướng dẫn học AG Grid từ zero → master (tiếng Việt):** [docs/HUONG-DAN-AG-GRID-ANGULAR.md](docs/HUONG-DAN-AG-GRID-ANGULAR.md)
+
 ## Setup in your Angular 20 app
 
 ```bash
