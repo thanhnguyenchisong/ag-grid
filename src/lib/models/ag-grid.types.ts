@@ -47,6 +47,12 @@ export type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
 };
 
+/** Return error message when invalid, or `null` when valid. */
+export type FieldValidator<TData extends RowData = RowData> = (
+  value: unknown,
+  row: TData,
+) => string | null;
+
 export interface TextColumnOptions<TData extends RowData = RowData> {
   field: keyof TData & string;
   headerName?: string;
@@ -55,6 +61,8 @@ export interface TextColumnOptions<TData extends RowData = RowData> {
   sortable?: boolean;
   filter?: boolean | string;
   pinned?: ColDef<TData>['pinned'];
+  /** Show yellow cell + "!" badge when validator returns a message. */
+  validate?: FieldValidator<TData>;
   extra?: Partial<ColDef<TData>>;
 }
 

@@ -39,6 +39,35 @@ import type { AgGridTableHost } from '../models/ag-grid.types';
         width: 100%;
         height: 100%;
       }
+      :host ::ng-deep .ag-grid-common-cell--warning {
+        background-color: #fef9c3 !important;
+      }
+      :host ::ng-deep .ag-grid-common-cell__wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        gap: 0.35rem;
+      }
+      :host ::ng-deep .ag-grid-common-cell__value {
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      :host ::ng-deep .ag-grid-common-cell__badge {
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.125rem;
+        height: 1.125rem;
+        border-radius: 50%;
+        background: #facc15;
+        color: #854d0e;
+        font-size: 0.75rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: help;
+      }
     `,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

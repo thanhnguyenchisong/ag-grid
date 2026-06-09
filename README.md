@@ -278,11 +278,47 @@ refresh(): void {
 
 ---
 
+## Field validation (yellow `!` warning)
+
+Per-column validator on `text()`, `number()`, or `date()` — invalid cells get a **yellow background** and **`!` badge** (hover for message). Works while displaying and during inline edit.
+
+```typescript
+import { email, combine, required } from '@app/ag-grid-common';
+
+this.columns.text({
+  field: 'email',
+  validate: combine(required<UserRow>(), email<UserRow>()),
+  extra: { editable: true },
+});
+```
+
+Built-in validators: `required`, `email`, `minLength`, `minValue`, `combine`. Custom:
+
+```typescript
+validate: (value, row) =>
+  String(value).startsWith('ORD-') ? null : 'Must start with ORD-',
+```
+
+After edit, refresh the cell so the badge updates:
+
+```typescript
+onCellValueChanged: (e) => {
+  const field = e.colDef.field;
+  if (field && e.node) {
+    e.api.refreshCells({ rowNodes: [e.node], columns: [field], force: true });
+  }
+},
+```
+
+Low-level: `applyFieldValidation(colDef, validator)` from `@app/ag-grid-common`.
+
+---
+
 ## Column customization
 
 | Method | Example | Notes |
 |--------|---------|-------|
-| `text({ field, flex, extra })` | `this.columns.text({ field: 'name', flex: 2 })` | `extra` for raw `ColDef` |
+| `text({ field, flex, validate, extra })` | `this.columns.text({ field: 'email', validate: email() })` | `validate` → yellow `!` when invalid |
 | `number(field)` | `this.columns.number('total')` | Number filter |
 | `date(field)` | `this.columns.date('createdAt')` | Date filter |
 | `checkbox()` | `this.columns.checkbox()` | Selection column |

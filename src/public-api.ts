@@ -27,10 +27,24 @@ export type {
   AgGridLifecycleHooks,
   AgGridTableHost,
   DeepPartial,
+  FieldValidator,
   GridContext,
   RowData,
   TextColumnOptions,
 } from './lib/models/ag-grid.types';
+
+export {
+  applyFieldValidation,
+  getFieldValidationError,
+  VALIDATION_WARNING_CELL_CLASS,
+} from './lib/validation/field-validation';
+export {
+  combine,
+  email,
+  minLength,
+  minValue,
+  required,
+} from './lib/validation/validators';
 
 export type {
   IDatasource,

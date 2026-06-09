@@ -1,9 +1,11 @@
 import type { ColDef, ColDefField, ValueFormatterParams } from 'ag-grid-community';
 import type {
   ActionColumnOptions,
+  FieldValidator,
   RowData,
   TextColumnOptions,
 } from '../models/ag-grid.types';
+import { applyFieldValidation } from '../validation/field-validation';
 
 /** Shared column builders — use inside any {@link AgGridBase} subclass. */
 export class ColumnDefinitionFactory<TData extends RowData = RowData> {
@@ -16,10 +18,11 @@ export class ColumnDefinitionFactory<TData extends RowData = RowData> {
       sortable = true,
       filter = true,
       pinned,
+      validate,
       extra = {},
     } = options;
 
-    return {
+    let col: ColDef<TData> = {
       field: field as ColDefField<TData>,
       headerName: headerName ?? this.toHeaderName(field),
       flex,
@@ -29,30 +32,44 @@ export class ColumnDefinitionFactory<TData extends RowData = RowData> {
       pinned,
       ...extra,
     };
+
+    if (validate) {
+      col = applyFieldValidation(col, validate);
+    }
+
+    return col;
   }
 
   number(
     field: keyof TData & string,
-    overrides: Partial<ColDef<TData>> = {},
+    overrides: Partial<ColDef<TData>> & {
+      validate?: FieldValidator<TData>;
+    } = {},
   ): ColDef<TData> {
+    const { validate, ...colOverrides } = overrides;
     return this.text({
       field,
+      validate,
       filter: 'agNumberColumnFilter',
       extra: {
         type: 'numericColumn',
         valueFormatter: (params: ValueFormatterParams<TData>) =>
           params.value != null ? String(params.value) : '',
-        ...overrides,
+        ...colOverrides,
       },
     });
   }
 
   date(
     field: keyof TData & string,
-    overrides: Partial<ColDef<TData>> = {},
+    overrides: Partial<ColDef<TData>> & {
+      validate?: FieldValidator<TData>;
+    } = {},
   ): ColDef<TData> {
+    const { validate, ...colOverrides } = overrides;
     return this.text({
       field,
+      validate,
       filter: 'agDateColumnFilter',
       extra: {
         valueFormatter: (params: ValueFormatterParams<TData>) => {
@@ -63,7 +80,7 @@ export class ColumnDefinitionFactory<TData extends RowData = RowData> {
               : new Date(String(params.value));
           return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString();
         },
-        ...overrides,
+        ...colOverrides,
       },
     });
   }
