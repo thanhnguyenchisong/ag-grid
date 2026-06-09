@@ -17,6 +17,7 @@ export {
 export {
   provideAgGrid,
   provideAgGridDefaults,
+  registerAgGridEnterpriseModules,
   type ProvideAgGridOptions,
 } from './lib/providers/provide-ag-grid';
 
@@ -32,6 +33,8 @@ export type {
 } from './lib/models/ag-grid.types';
 
 export type {
+  IDatasource,
+  IGetRowsParams,
   IServerSideDatasource,
   IServerSideGetRowsParams,
   RefreshServerSideParams,

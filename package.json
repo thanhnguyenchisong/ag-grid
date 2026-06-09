@@ -13,7 +13,13 @@
     "@angular/core": "^20.0.0",
     "ag-grid-angular": "^35.0.0",
     "ag-grid-community": "^35.0.0",
+    "ag-grid-enterprise": "^35.0.0",
     "rxjs": "^7.8.0"
+  },
+  "peerDependenciesMeta": {
+    "ag-grid-enterprise": {
+      "optional": true
+    }
   },
   "scripts": {
     "start": "ng serve demo",

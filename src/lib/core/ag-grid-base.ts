@@ -4,6 +4,7 @@ import type {
   GridApi,
   GridOptions,
   GridReadyEvent,
+  IDatasource,
   IServerSideDatasource,
   RefreshServerSideParams,
 } from 'ag-grid-community';
@@ -184,11 +185,24 @@ export abstract class AgGridBase<
     this.requireApi().refreshServerSide(params);
   }
 
+  /** Purge và tải lại infinite row model (AG Grid Community). */
+  refreshInfiniteCache(): void {
+    this.requireApi().purgeInfiniteCache();
+  }
+
   /**
-   * Override để bật server-side row model.
+   * Override để bật server-side row model (AG Grid Enterprise).
    * Trả về datasource khác `null` → `rowModelType: 'serverSide'` được merge tự động.
    */
   protected createServerSideDatasource(): IServerSideDatasource<TData> | null {
+    return null;
+  }
+
+  /**
+   * Override để bật infinite row model (AG Grid Community — lazy-load từ server).
+   * Trả về datasource khác `null` → `rowModelType: 'infinite'` được merge tự động.
+   */
+  protected createInfiniteDatasource(): IDatasource | null {
     return null;
   }
 
@@ -252,19 +266,32 @@ export abstract class AgGridBase<
       opts.rowSelection = this.config.rowSelection;
     }
 
-    this.applyServerSideOptions(opts);
+    this.applyRemoteRowModelOptions(opts);
 
     return opts;
   }
 
-  private applyServerSideOptions(opts: GridOptions<TData>): void {
-    const datasource = this.createServerSideDatasource();
-    if (!datasource) return;
-
-    opts.rowModelType = 'serverSide';
-    opts.serverSideDatasource = datasource;
-    opts.cacheBlockSize =
+  /**
+   * SSRM (Enterprise) wins over Infinite (Community) when both are overridden.
+   */
+  private applyRemoteRowModelOptions(opts: GridOptions<TData>): void {
+    const blockSize =
       opts.cacheBlockSize ?? this.config.serverSideCacheBlockSize ?? 100;
+
+    const ssrm = this.createServerSideDatasource();
+    if (ssrm) {
+      opts.rowModelType = 'serverSide';
+      opts.serverSideDatasource = ssrm;
+      opts.cacheBlockSize = blockSize;
+      return;
+    }
+
+    const infinite = this.createInfiniteDatasource();
+    if (!infinite) return;
+
+    opts.rowModelType = 'infinite';
+    opts.datasource = infinite;
+    opts.cacheBlockSize = blockSize;
   }
 
   private wrapGridReady(options: GridOptions<TData>): GridOptions<TData> {

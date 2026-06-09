@@ -1,57 +1,73 @@
 # AG Grid Common (Angular 20)
 
-One reusable **`AgGridBase`** class and **`AgGridTableComponent`** for every feature that needs a table.
+Reusable **`AgGridBase`** + **`AgGridTableComponent`** for every table in your Angular app — client-side, server-driven (Community), or SSRM (Enterprise).
 
-**Kế hoạch ý tưởng chi tiết (tiếng Việt):** [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
+**Kế hoạch ý tưởng (tiếng Việt):** [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 
-**Hướng dẫn học AG Grid từ zero → master (tiếng Việt):** [docs/HUONG-DAN-AG-GRID-ANGULAR.md](docs/HUONG-DAN-AG-GRID-ANGULAR.md)
+**Hướng dẫn AG Grid zero → master (tiếng Việt):** [docs/HUONG-DAN-AG-GRID-ANGULAR.md](docs/HUONG-DAN-AG-GRID-ANGULAR.md)
 
-**Reference implementation:** [projects/demo/src/app/](projects/demo/src/app/) — `UsersGridService` + toolbar + `AgGridTableComponent`
+**Demo:** [projects/demo/src/app/](projects/demo/src/app/) — `npm start` → http://localhost:4200/
+
+---
+
+## Contents
+
+- [Architecture](#architecture)
+- [Setup](#setup-in-your-angular-20-app)
+- [Recipe: new table](#recipe-new-table-in-5-steps)
+- [Row models (per table)](#row-models-pick-per-table)
+- [Examples](#examples)
+- [Column customization](#column-customization)
+- [Per-table options](#per-table-options)
+- [DI and lifecycle](#di-and-lifecycle)
+- [Public API](#aggridbase-public-api)
+- [Library exports](#library-exports)
+- [Advanced customization](#advanced-customization)
+- [Reference files](#reference-files-in-this-repo)
+- [Run demo & build](#run-the-demo-app)
 
 ---
 
 ## Architecture
 
-Three layers — each table in your app only implements the **feature** layer:
-
 ```
 App (once)          →  provideAgGrid(), theme CSS, defaultColDef
 Common (library)    →  AgGridBase, AgGridTableComponent, ColumnDefinitionFactory
-Feature (per table) →  OrdersGridService, UsersGridService, ProductsGridService …
+Feature (per table) →  UsersGridService, OrdersGridService, ReportsGridService …
 ```
 
-| Layer | You configure | You do **not** configure |
-|-------|---------------|--------------------------|
-| **App** | Theme, global `gridOptions`, default height | Per-table columns or API calls |
-| **Common** | (import library) | Business logic |
-| **Feature** | Columns, load data, buttons/actions | Raw `ag-grid-angular` markup |
+| Layer | Responsibility |
+|-------|----------------|
+| **App** | Theme, global `gridOptions`, register Community + optional Enterprise modules |
+| **Common** | Merge config, lifecycle, table shell — no business logic |
+| **Feature** | Columns, load data, toolbar actions — one service per table |
 
-**Rule:** one feature service extends `AgGridBase` per table. Multiple tables = multiple services.
+**Rule:** `extends AgGridBase<RowType>` once per table. Multiple tables = multiple services.
 
 ---
 
 ## Setup in your Angular 20 app
 
-### 1. Install dependencies
+### 1. Install
 
 ```bash
 npm install ag-grid-community ag-grid-angular
+# Optional — only if any table uses Enterprise (SSRM, grouping, Excel export…)
+npm install ag-grid-enterprise
 ```
 
-Peer dependencies required by this library: `@angular/core` ^20, `@angular/common` ^20, `rxjs` ^7.8.
+Peer deps: `@angular/core` ^20, `@angular/common` ^20, `rxjs` ^7.8. `ag-grid-enterprise` is optional.
 
-### 2. AG Grid styles
-
-In `angular.json` or `styles.scss`:
+### 2. Styles
 
 ```scss
+// styles.scss or angular.json
 @use 'ag-grid-community/styles/ag-grid.css';
 @use 'ag-grid-community/styles/ag-theme-quartz.css';
+// Import other themes if used per-table (e.g. ag-theme-alpine.css)
 ```
 
-### 3. Register modules + app-wide defaults
-
-In `app.config.ts`:
+### 3. App config — Community only
 
 ```typescript
 import { type ApplicationConfig } from '@angular/core';
@@ -72,11 +88,50 @@ export const appConfig: ApplicationConfig = {
 };
 ```
 
-`provideAgGrid()` registers AG Grid community modules and optional app-wide defaults. Use `provideAgGridDefaults()` alone if you register modules yourself.
+### 4. App config — mixed Community + Enterprise
 
-### 4. Link the library
+Some tables use Enterprise, others stay Community. Register Enterprise **once** for the whole app:
 
-**Consumer app** — point to the built package (run `npm run build:lib` in this repo first):
+```typescript
+// main.ts — BEFORE bootstrapApplication
+import { LicenseManager } from 'ag-grid-enterprise';
+LicenseManager.setLicenseKey('YOUR_LICENSE_KEY');
+
+// app.config.ts
+import { type ApplicationConfig } from '@angular/core';
+import { AllEnterpriseModule } from 'ag-grid-enterprise';
+import { provideAgGrid } from '@app/ag-grid-common';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideAgGrid({
+      enterpriseModules: [AllEnterpriseModule],
+      defaults: {
+        themeClass: 'ag-theme-quartz',
+        defaultHeight: '480px',
+        gridOptions: {
+          defaultColDef: { sortable: true, filter: true, resizable: true },
+        },
+      },
+    }),
+  ],
+};
+```
+
+Alternative — register Enterprise manually in `main.ts`:
+
+```typescript
+import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community';
+import { AllEnterpriseModule } from 'ag-grid-enterprise';
+
+ModuleRegistry.registerModules([AllCommunityModule, AllEnterpriseModule]);
+```
+
+Or use `registerAgGridEnterpriseModules(AllEnterpriseModule)` from `@app/ag-grid-common` after Community modules are registered.
+
+### 5. Link this library
+
+**Consumer app** (build library first: `npm run build:lib`):
 
 ```json
 {
@@ -88,36 +143,46 @@ export const appConfig: ApplicationConfig = {
 }
 ```
 
-**This repo (dev)** — `tsconfig.json` already maps `@app/ag-grid-common` → `src/public-api.ts`, so `npm start` works without building the library.
+**This repo (dev):** `tsconfig.json` maps `@app/ag-grid-common` → `src/public-api.ts` — `npm start` works without building the library.
 
 ---
 
 ## Recipe: new table in 5 steps
 
-1. **Define a row interface** — add `[key: string]: unknown` for `RowData` compatibility.
-2. **Create `XxxGridService extends AgGridBase<XxxRow>`** — pass per-table config in `super({ ... })`.
-3. **Override `buildColumnDefs()`** — declare columns with `this.columns.*`.
-4. **Override `onGridReady()`** — load data on first render.
-5. **Wire in a component** — `providers: [XxxGridService]` + `<app-ag-grid-table [grid]="grid" />`.
+1. **Row interface** — include `[key: string]: unknown` for `RowData` compatibility.
+2. **`XxxGridService extends AgGridBase<XxxRow>`** — config in `super({ ... })`.
+3. **`buildColumnDefs()`** — columns via `this.columns.*`.
+4. **Load data** — pick one:
+   - Client-side → `onGridReady()` + `setRowData()`
+   - Server-driven → `createInfiniteDatasource()` (Community)
+   - SSRM → `createServerSideDatasource()` (Enterprise)
+5. **Component** — `providers: [XxxGridService]` + `<app-ag-grid-table [grid]="grid" />`.
 
 ---
 
-## Example: Orders table
+## Row models: pick per table
 
-### Grid service (`features/orders/orders-grid.service.ts`)
+| Need | Override | Edition | Load data |
+|------|----------|---------|-----------|
+| Small/medium lists | *(default)* | Community | `setRowData()` in `onGridReady()` |
+| Large lists, lazy blocks | `createInfiniteDatasource()` | Community | `successCallback(rows, lastRow)` |
+| SSRM, server grouping/pivot | `createServerSideDatasource()` | **Enterprise** | `params.success({ rowData, rowCount })` |
+
+**Priority:** if both `createServerSideDatasource()` and `createInfiniteDatasource()` return a datasource, **SSRM wins**.
+
+| | Client-side | Infinite (Community) | SSRM (Enterprise) |
+|---|-------------|----------------------|-------------------|
+| **When** | &lt; few thousand rows | Large data, basic server sort/filter | Full server-side features |
+| **Do not** | `setRowData` on huge datasets | Expect row grouping on server | Use without license |
+| **Refresh** | `reload()` → `setRowData` | `refreshInfiniteCache()` | `refreshServerSide({ purge: true })` |
+
+---
+
+## Examples
+
+### Client-side (default)
 
 ```typescript
-import { Injectable, inject } from '@angular/core';
-import type { ColDef } from 'ag-grid-community';
-import { AgGridBase } from '@app/ag-grid-common';
-
-export interface OrderRow {
-  orderNo: string;
-  createdAt: string;
-  total: number;
-  [key: string]: unknown;
-}
-
 @Injectable()
 export class OrdersGridService extends AgGridBase<OrderRow> {
   private readonly api = inject(OrdersApi);
@@ -141,23 +206,16 @@ export class OrdersGridService extends AgGridBase<OrderRow> {
   reload(): void {
     this.showLoading();
     this.api.getAll().subscribe({
-      next: (rows) => {
-        this.setRowData(rows);
-        this.hideLoading();
-      },
+      next: (rows) => { this.setRowData(rows); this.hideLoading(); },
       error: () => this.hideLoading(),
     });
   }
 }
 ```
 
-### Page component (`features/orders/orders-page.component.ts`)
+### Page component
 
 ```typescript
-import { Component } from '@angular/core';
-import { AgGridTableComponent } from '@app/ag-grid-common';
-import { OrdersGridService } from './orders-grid.service';
-
 @Component({
   standalone: true,
   imports: [AgGridTableComponent],
@@ -173,42 +231,76 @@ export class OrdersPageComponent {
 }
 ```
 
+### Server-driven — Infinite Row Model (Community)
+
+Do **not** call `setRowData()` in `onGridReady`. See demo: [orders-server-grid.service.ts](projects/demo/src/app/orders-server-grid.service.ts).
+
+```typescript
+protected override createInfiniteDatasource(): IDatasource {
+  return {
+    rowCount: TOTAL_ROWS, // optional — known dataset size
+    getRows: (params) => {
+      this.api.fetchBlock(params.startRow, params.endRow, params.sortModel, params.filterModel)
+        .subscribe({
+          next: ({ rows, total }) => params.successCallback(rows, total),
+          error: () => params.failCallback(),
+        });
+    },
+  };
+}
+
+refresh(): void {
+  this.refreshInfiniteCache();
+}
+```
+
+### SSRM (Enterprise)
+
+Template: [orders-ssrm-grid.service.example.ts](src/lib/examples/orders-ssrm-grid.service.example.ts).
+
+```typescript
+protected override createServerSideDatasource(): IServerSideDatasource<OrderRow> {
+  return {
+    getRows: (params) => {
+      this.api.query(params.request).subscribe({
+        next: (res) =>
+          params.success({ rowData: res.rows, rowCount: res.total }),
+        error: () => params.fail(),
+      });
+    },
+  };
+}
+
+refresh(): void {
+  this.refreshServerSide({ purge: true });
+}
+```
+
 ---
 
 ## Column customization
 
-Use `this.columns` inside `buildColumnDefs()`:
-
-| Method | Usage | When to use |
-|--------|-------|-------------|
-| `text({ field, headerName, flex, extra })` | `this.columns.text({ field: 'name', flex: 2 })` | Text columns; pass raw `ColDef` overrides via `extra` |
-| `number(field, overrides?)` | `this.columns.number('total')` | Numeric filter + formatter |
-| `date(field, overrides?)` | `this.columns.date('createdAt')` | Date filter + locale formatter |
-| `checkbox(overrides?)` | `this.columns.checkbox()` | Legacy checkbox selection column |
-| `actions({ cellRenderer, onCellClicked })` | See below | Edit / Delete buttons |
-| `fromFields(['a','b'])` | `this.columns.fromFields(['sku', 'qty'])` | Quick tables with default text columns |
-
-**Custom cell renderer** via `extra`:
+| Method | Example | Notes |
+|--------|---------|-------|
+| `text({ field, flex, extra })` | `this.columns.text({ field: 'name', flex: 2 })` | `extra` for raw `ColDef` |
+| `number(field)` | `this.columns.number('total')` | Number filter |
+| `date(field)` | `this.columns.date('createdAt')` | Date filter |
+| `checkbox()` | `this.columns.checkbox()` | Selection column |
+| `actions({ onCellClicked })` | Edit / Delete column | Pinned right |
+| `fromFields(['a','b'])` | Auto text columns | Quick tables |
 
 ```typescript
+// Custom renderer
 this.columns.text({
   field: 'status',
-  extra: {
-    cellRenderer: (params) => `<span class="badge">${params.value}</span>`,
-  },
+  extra: { cellRenderer: (p) => `<span>${p.value}</span>` },
 });
-```
 
-**Actions column:**
-
-```typescript
-this.columns.actions({
-  width: 100,
-  onCellClicked: (event) => {
-    if (event.colDef.colId === 'actions') {
-      this.editRow(event.data);
-    }
-  },
+// Set filter (pass filterParams via extra)
+this.columns.text({
+  field: 'status',
+  filter: 'agSetColumnFilter',
+  extra: { filterParams: { values: ['pending', 'paid'] } },
 });
 ```
 
@@ -216,14 +308,13 @@ this.columns.actions({
 
 ## Per-table options
 
-Pass config in `super({ ... })` or override `getDefaultGridOptions()`:
+### Constructor config
 
 ```typescript
-import type { GridOptions } from 'ag-grid-community';
-
 super({
   id: 'orders-grid',
   paginationPageSize: 25,
+  serverSideCacheBlockSize: 50, // block size for Infinite / SSRM
   rowSelection: { mode: 'singleRow' },
   context: { canEdit: true },
   gridOptions: { domLayout: 'autoHeight' },
@@ -234,18 +325,29 @@ super({
 });
 ```
 
-**Read-only table** — disable selection in the feature service:
+### Theme per table
+
+App default comes from `provideAgGrid({ defaults: { themeClass } })`. Override in a single grid service:
 
 ```typescript
-protected override getDefaultGridOptions(): GridOptions<OrderRow> {
-  return {
-    ...super.getDefaultGridOptions(),
-    rowSelection: undefined,
-  };
+override get themeClass(): string {
+  return 'ag-theme-alpine';
 }
 ```
 
-**Merge order** (lowest → highest priority): `provideAgGridDefaults()` → `getDefaultGridOptions()` → `super({ gridOptions })` → `buildColumnDefs()` → plugins.
+Import the matching CSS in `styles.scss` (e.g. `ag-theme-alpine.css`).
+
+### Read-only table
+
+```typescript
+protected override getDefaultGridOptions(): GridOptions<OrderRow> {
+  return { ...super.getDefaultGridOptions(), rowSelection: undefined };
+}
+```
+
+### Config merge order (low → high)
+
+`provideAgGridDefaults()` → `getDefaultGridOptions()` → `super({ gridOptions })` → `buildColumnDefs()` → plugins → remote row model datasource.
 
 ---
 
@@ -253,31 +355,53 @@ protected override getDefaultGridOptions(): GridOptions<OrderRow> {
 
 | Pattern | When | Template |
 |---------|------|----------|
-| `providers: [XxxGridService]` on component | **Recommended** — one grid instance per page | `<app-ag-grid-table [grid]="grid" />` |
-| `providedIn: 'root'` | Shared grid service across routes | `<app-ag-grid-table [grid]="grid" [autoDestroy]="false" />` |
+| `providers: [XxxGridService]` on component | **Recommended** | `<app-ag-grid-table [grid]="grid" />` |
+| `providedIn: 'root'` | Shared across routes | `<app-ag-grid-table [autoDestroy]="false" />` |
 
-`AgGridTableComponent` calls `grid.destroy()` on teardown by default. Set `[autoDestroy]="false"` when the service outlives the component.
-
-Override `onDestroy()` in your grid service to unsubscribe or clean up.
+`AgGridTableComponent` calls `grid.destroy()` on teardown by default. Override `onDestroy()` in the grid service to unsubscribe.
 
 ---
 
 ## `AgGridBase` public API
 
-Call these from templates, toolbar buttons, or feature methods:
-
-| Method | Description |
-|--------|-------------|
-| `setRowData(rows)` | Replace all rows (client-side) |
-| `getSelectedRows()` | Selected row objects |
-| `selectAll()` / `deselectAll()` | Selection helpers |
-| `exportCsv(fileName?)` | Download CSV |
+| Method | Use |
+|--------|-----|
+| `setRowData(rows)` | Client-side data |
+| `getSelectedRows()` | Selection |
+| `selectAll()` / `deselectAll()` | Bulk selection |
+| `exportCsv(fileName?)` | CSV export |
 | `showLoading()` / `hideLoading()` | Loading overlay |
-| `refreshCells(force?)` | Re-render cells |
-| `sizeColumnsToFit()` | Fit columns to grid width |
-| `getApi()` / `requireApi()` | Access raw AG Grid API |
-| `setServerSideDatasource(ds)` | Attach SSRM datasource after ready |
-| `refreshServerSide(params?)` | Reload server-side blocks |
+| `refreshCells(force?)` | Re-render |
+| `sizeColumnsToFit()` | Auto-fit columns |
+| `getApi()` / `requireApi()` | Raw AG Grid API |
+| `refreshInfiniteCache()` | Reload Infinite model (Community) |
+| `refreshServerSide(params?)` | Reload SSRM (Enterprise) |
+| `setServerSideDatasource(ds)` | Swap SSRM datasource after ready |
+
+---
+
+## Library exports
+
+```typescript
+import {
+  AgGridBase,
+  AgGridTableComponent,
+  ColumnDefinitionFactory,
+  GridConfigBuilder,
+  provideAgGrid,
+  provideAgGridDefaults,
+  registerAgGridEnterpriseModules,
+} from '@app/ag-grid-common';
+
+import type {
+  AgGridConfig,
+  GridPlugin,
+  IDatasource,
+  IGetRowsParams,
+  IServerSideDatasource,
+  IServerSideGetRowsParams,
+} from '@app/ag-grid-common';
+```
 
 ---
 
@@ -285,54 +409,36 @@ Call these from templates, toolbar buttons, or feature methods:
 
 | Need | How |
 |------|-----|
-| App-wide defaults | `provideAgGrid()` or `provideAgGridDefaults()` |
-| Feature columns | Override `buildColumnDefs()` |
-| Feature options | Override `getDefaultGridOptions()` or `super({ gridOptions })` |
-| Load data on ready | Override `onGridReady()` |
+| App defaults | `provideAgGrid()` / `provideAgGridDefaults()` |
+| Enterprise modules | `provideAgGrid({ enterpriseModules: [AllEnterpriseModule] })` |
+| Columns | Override `buildColumnDefs()` |
+| Grid options | Override `getDefaultGridOptions()` or `super({ gridOptions })` |
 | Plugins | `this.use(plugin)` in constructor |
-| Fluent config | `new GridConfigBuilder()` → `super(builder.toConfig('my-id'))` |
-| Server-side rows | Override `createServerSideDatasource()` — [plan doc](docs/PLAN-AG-GRID-COMMON.md#6-server-side-row-model-tùy-chọn) |
-| Shared grid service | `[autoDestroy]="false"` with `providedIn: 'root'` |
-
-### Plugin example
+| Fluent config | `new GridConfigBuilder<T>().withPagination(25).toConfig('id')` |
+| Shared service | `[autoDestroy]="false"` |
 
 ```typescript
-constructor() {
-  super({ id: 'orders-grid' });
-  this.use({
-    name: 'audit',
-    onGridReady: (api) => console.log('[audit] grid ready', api),
-  });
-}
+// Plugin
+this.use({
+  name: 'audit',
+  onGridReady: (api) => console.log('[audit]', api),
+});
 ```
 
-### GridConfigBuilder example
-
-```typescript
-import { GridConfigBuilder } from '@app/ag-grid-common';
-
-constructor() {
-  super(
-    new GridConfigBuilder<OrderRow>()
-      .withPagination(25)
-      .withRowSelection({ mode: 'singleRow' })
-      .toConfig('orders-grid'),
-  );
-}
-```
-
-Override `buildColumnDefs()` for columns when using the builder — or call `.withColumnDefs([...])` in the constructor before `super()`.
+More detail: [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 
 ---
 
 ## Reference files in this repo
 
-| File | Purpose |
+| File | Pattern |
 |------|---------|
-| [projects/demo/src/app/users-grid.service.ts](projects/demo/src/app/users-grid.service.ts) | Working grid service with mock data |
-| [projects/demo/src/app/app.component.ts](projects/demo/src/app/app.component.ts) | Toolbar + table wiring |
-| [src/lib/examples/users-grid.service.example.ts](src/lib/examples/users-grid.service.example.ts) | Copy-paste template for new features |
-| [src/lib/core/ag-grid-base.ts](src/lib/core/ag-grid-base.ts) | Base class implementation |
+| [users-grid.service.ts](projects/demo/src/app/users-grid.service.ts) | Client-side + `setRowData()` |
+| [orders-server-grid.service.ts](projects/demo/src/app/orders-server-grid.service.ts) | Infinite / Community |
+| [orders-mock.store.ts](projects/demo/src/app/orders-mock.store.ts) | Mock API (sort, filter, blocks) |
+| [orders-ssrm-grid.service.example.ts](src/lib/examples/orders-ssrm-grid.service.example.ts) | SSRM / Enterprise template |
+| [users-grid.service.example.ts](src/lib/examples/users-grid.service.example.ts) | Copy-paste starter |
+| [ag-grid-base.ts](src/lib/core/ag-grid-base.ts) | Base class source |
 
 ---
 
@@ -343,11 +449,19 @@ npm install
 npm start
 ```
 
-Open http://localhost:4200/ — demo uses `UsersGridService` + `AgGridTableComponent`.
+Open http://localhost:4200/ — two tabs:
+
+| Tab | Service | Pattern |
+|-----|---------|---------|
+| **Client-side (Users)** | `UsersGridService` | `setRowData()` + client pagination |
+| **Server-driven (Orders)** | `OrdersServerGridService` | `createInfiniteDatasource()` — 500 mock rows |
+
+> SSRM (`createServerSideDatasource`) requires **AG Grid Enterprise** + license. The Orders demo uses **Infinite Row Model** (Community) with the same server-driven loading pattern.
 
 ## Build
 
 ```bash
-npm run build        # library + demo
-npm run build:lib    # library only → dist/
+npm run build        # library → dist/ + demo → dist/demo/
+npm run build:lib    # library only
+npm run build:demo   # demo only
 ```

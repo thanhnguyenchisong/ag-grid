@@ -52,4 +52,8 @@ export class UsersGridService extends AgGridBase<UserRow> {
     MOCK_USERS.push(...remaining);
     this.loadUsers();
   }
+
+  override get themeClass(): string {
+    return 'ag-theme-alpine';
+  }
 }

@@ -4,6 +4,7 @@ import { provideAgGrid } from '@app/ag-grid-common';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideAgGrid({
+      enterpriseModules: [],
       defaults: {
         themeClass: 'ag-theme-quartz',
         defaultHeight: '480px',
