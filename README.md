@@ -22,20 +22,24 @@ In `angular.json` or `styles.scss`:
 In `app.config.ts`:
 
 ```typescript
-import { provideAgGridDefaults } from '@app/ag-grid-common';
+import { provideAgGrid } from '@app/ag-grid-common';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideAgGridDefaults({
-      themeClass: 'ag-theme-quartz',
-      defaultHeight: '480px',
-      gridOptions: {
-        defaultColDef: { sortable: true, filter: true, resizable: true },
+    provideAgGrid({
+      defaults: {
+        themeClass: 'ag-theme-quartz',
+        defaultHeight: '480px',
+        gridOptions: {
+          defaultColDef: { sortable: true, filter: true, resizable: true },
+        },
       },
     }),
   ],
 };
 ```
+
+`provideAgGrid()` registers AG Grid community modules and optional app-wide defaults. Use `provideAgGridDefaults()` alone if you register modules yourself.
 
 Link this library via path in `tsconfig.json`:
 
@@ -49,7 +53,16 @@ Link this library via path in `tsconfig.json`:
 
 ## 1. Create a grid per feature (extend `AgGridBase`)
 
+Row interfaces need `[key: string]: unknown` for `RowData` compatibility:
+
 ```typescript
+interface OrderRow {
+  orderNo: string;
+  createdAt: string;
+  total: number;
+  [key: string]: unknown;
+}
+
 // features/orders/orders-grid.service.ts
 @Injectable()
 export class OrdersGridService extends AgGridBase<OrderRow> {
@@ -102,13 +115,14 @@ export class OrdersPageComponent {
 
 | Need | How |
 |------|-----|
-| App-wide defaults | `provideAgGridDefaults()` |
+| App-wide defaults | `provideAgGrid()` or `provideAgGridDefaults()` |
 | Feature columns | Override `buildColumnDefs()` |
 | Feature options | Override `getDefaultGridOptions()` or pass `super({ gridOptions: { ... } })` |
 | Load data on ready | Override `onGridReady()` |
 | Plugins (export rules, etc.) | `this.use(myPlugin)` in constructor |
 | Fluent config | `GridConfigBuilder` → `super(builder.toConfig())` |
 | Server-side rows | Override `createServerSideDatasource()` — see [plan doc](docs/PLAN-AG-GRID-COMMON.md#6-server-side-row-model-tùy-chọn) |
+| Shared grid service | `<app-ag-grid-table [autoDestroy]="false" />` when using `providedIn: 'root'` |
 
 ## Run the demo app
 

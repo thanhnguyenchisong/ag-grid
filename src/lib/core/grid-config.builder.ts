@@ -15,20 +15,28 @@ export class GridConfigBuilder<
   private rowData: TData[] | undefined;
   private context: TContext | undefined;
   private hooks: AgGridConfig<TData, TContext>['hooks'];
+  private id?: string;
+  private paginationPageSize?: number;
+  private rowSelection?: GridOptions<TData>['rowSelection'];
+  private serverSideCacheBlockSize?: number;
 
   static fromConfig<T extends RowData, C extends GridContext>(
     config: AgGridConfig<T, C>,
   ): GridConfigBuilder<T, C> {
     const builder = new GridConfigBuilder<T, C>();
+    builder.id = config.id;
+    builder.serverSideCacheBlockSize = config.serverSideCacheBlockSize;
     if (config.columnDefs) builder.columnDefs = [...config.columnDefs];
     if (config.rowData) builder.rowData = config.rowData;
     if (config.context) builder.context = config.context;
     if (config.hooks) builder.hooks = config.hooks;
     if (config.gridOptions) builder.options = { ...config.gridOptions };
     if (config.paginationPageSize != null) {
+      builder.paginationPageSize = config.paginationPageSize;
       builder.withPagination(config.paginationPageSize);
     }
     if (config.rowSelection != null) {
+      builder.rowSelection = config.rowSelection;
       builder.withRowSelection(config.rowSelection);
     }
     return builder;
@@ -73,11 +81,14 @@ export class GridConfigBuilder<
 
   toConfig(id?: string): AgGridConfig<TData, TContext> {
     return {
-      id,
+      id: id ?? this.id,
       gridOptions: this.options,
       columnDefs: this.columnDefs.length ? this.columnDefs : undefined,
       rowData: this.rowData,
       context: this.context,
+      paginationPageSize: this.paginationPageSize,
+      rowSelection: this.rowSelection,
+      serverSideCacheBlockSize: this.serverSideCacheBlockSize,
       hooks: this.hooks,
     };
   }

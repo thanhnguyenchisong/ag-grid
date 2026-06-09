@@ -14,7 +14,11 @@ export {
   AG_GRID_DEFAULTS,
   type AgGridDefaults,
 } from './lib/tokens/ag-grid-defaults.token';
-export { provideAgGridDefaults } from './lib/providers/provide-ag-grid';
+export {
+  provideAgGrid,
+  provideAgGridDefaults,
+  type ProvideAgGridOptions,
+} from './lib/providers/provide-ag-grid';
 
 export type {
   ActionColumnOptions,

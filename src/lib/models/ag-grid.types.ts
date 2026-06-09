@@ -62,7 +62,7 @@ export interface TextColumnOptions<TData extends RowData = RowData> {
 export interface AgGridTableHost {
   getTableGridOptions(): GridOptions;
   destroy(): void;
-  readonly themeClass: string;
+  readonly themeClass:  string;
   readonly defaultHeight: string;
 }
 

@@ -12,6 +12,7 @@ export interface UserRow {
   name: string;
   email: string;
   createdAt: string;
+  [key: string]: unknown;
 }
 
 // @Injectable({ providedIn: 'root' }) // or providedIn: 'any' per route
@@ -26,7 +27,7 @@ export class UsersGridService extends AgGridBase<UserRow> {
     return [
       this.columns.text({ field: 'name', flex: 2 }),
       this.columns.text({ field: 'email', flex: 2 }),
-      this.columns.date({ field: 'createdAt' }),
+      this.columns.date('createdAt'),
     ];
   }
 

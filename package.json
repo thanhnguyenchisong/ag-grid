@@ -2,18 +2,24 @@
   "name": "@app/ag-grid-common",
   "version": "1.0.0",
   "description": "Reusable AG Grid base class and table component for Angular 20",
-  "scripts": {
-    "start": "ng serve demo",
-    "build": "npm run build:lib && ng build demo",
-    "build:lib": "ng-packagr -p ng-package.json",
-    "build:demo": "ng build demo"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ENGUYETIC/ag-grid.git"
   },
+  "keywords": ["angular", "ag-grid", "table", "data-grid"],
   "peerDependencies": {
     "@angular/common": "^20.0.0",
     "@angular/core": "^20.0.0",
     "ag-grid-angular": "^35.0.0",
     "ag-grid-community": "^35.0.0",
     "rxjs": "^7.8.0"
+  },
+  "scripts": {
+    "start": "ng serve demo",
+    "build": "npm run build:lib && ng build demo",
+    "build:lib": "ng-packagr -p ng-package.json",
+    "build:demo": "ng build demo"
   },
   "devDependencies": {
     "@angular/build": "^20.0.0",

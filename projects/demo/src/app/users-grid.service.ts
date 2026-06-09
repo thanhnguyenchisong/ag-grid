@@ -2,14 +2,23 @@ import { Injectable } from '@angular/core';
 import type { ColDef } from 'ag-grid-community';
 import { AgGridBase } from '@app/ag-grid-common';
 
-export interface UserRow extends Record<string, unknown> {
+export interface UserRow {
   id: string;
   name: string;
   email: string;
   createdAt: string;
+  [key: string]: unknown;
 }
 
-@Injectable({ providedIn: 'root' })
+const MOCK_USERS: UserRow[] = [
+  { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', createdAt: '2025-01-15' },
+  { id: '2', name: 'Grace Hopper', email: 'grace@example.com', createdAt: '2025-02-20' },
+  { id: '3', name: 'Alan Turing', email: 'alan@example.com', createdAt: '2025-03-10' },
+  { id: '4', name: 'Katherine Johnson', email: 'katherine@example.com', createdAt: '2025-04-05' },
+  { id: '5', name: 'Tim Berners-Lee', email: 'tim@example.com', createdAt: '2025-05-18' },
+];
+
+@Injectable()
 export class UsersGridService extends AgGridBase<UserRow> {
   constructor() {
     super({ id: 'users-grid', paginationPageSize: 10 });
@@ -28,25 +37,19 @@ export class UsersGridService extends AgGridBase<UserRow> {
   }
 
   loadUsers(): void {
-    this.setRowData([
-      {
-        id: '1',
-        name: 'Ada Lovelace',
-        email: 'ada@example.com',
-        createdAt: '2025-01-15',
-      },
-      {
-        id: '2',
-        name: 'Grace Hopper',
-        email: 'grace@example.com',
-        createdAt: '2025-02-20',
-      },
-      {
-        id: '3',
-        name: 'Alan Turing',
-        email: 'alan@example.com',
-        createdAt: '2025-03-10',
-      },
-    ]);
+    this.showLoading();
+    this.setRowData([...MOCK_USERS]);
+    this.hideLoading();
+  }
+
+  deleteSelected(): void {
+    const selected = this.getSelectedRows();
+    if (!selected.length) return;
+
+    const ids = new Set(selected.map((r) => r.id));
+    const remaining = MOCK_USERS.filter((u) => !ids.has(u.id));
+    MOCK_USERS.length = 0;
+    MOCK_USERS.push(...remaining);
+    this.loadUsers();
   }
 }

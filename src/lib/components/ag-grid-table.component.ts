@@ -49,6 +49,8 @@ export class AgGridTableComponent implements OnInit, OnDestroy {
 
   @Input() height?: string;
   @Input() width = '100%';
+  /** Set false when the grid service is shared (e.g. `providedIn: 'root'`). */
+  @Input() autoDestroy = true;
 
   gridOptions!: GridOptions;
   themeClass = 'ag-theme-quartz';
@@ -65,6 +67,8 @@ export class AgGridTableComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.grid?.destroy();
+    if (this.autoDestroy) {
+      this.grid?.destroy();
+    }
   }
 }
