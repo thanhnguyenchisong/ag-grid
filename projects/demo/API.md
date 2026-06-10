@@ -26,7 +26,8 @@ Response: `200` + JSON array:
     "id": "1",
     "name": "Ada Lovelace",
     "email": "ada@example.com",
-    "createdAt": "2025-01-15"
+    "createdAt": "2025-01-15",
+    "isActive": true
   }
 ]
 ```
@@ -81,3 +82,19 @@ Response: `200` + JSON:
 ```
 
 `total` = row count **after** server-side filter (for correct scrollbar).
+
+---
+
+## Products (complex server-driven grid — demo tab 3)
+
+Same query contract as orders. **500** products with ~30 fields (see `server/products-store.js`).
+
+### `GET /api/products`
+
+Query: `offset`, `limit`, `sort`, `filter` (same as orders).
+
+Response: `{ items: ProductRow[], total: number }`.
+
+### `PATCH /api/products/:id`
+
+Partial update for inline edit on field columns.

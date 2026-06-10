@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const ordersStore = require('./orders-store');
+const productsStore = require('./products-store');
 const usersStore = require('./users-store');
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -41,6 +42,20 @@ app.get('/api/orders', (req, res) => {
   res.json(ordersStore.queryPage(req.query));
 });
 
+app.get('/api/products', (req, res) => {
+  res.json(productsStore.queryPage(req.query));
+});
+
+app.patch('/api/products/:id', (req, res) => {
+  try {
+    const product = productsStore.update(req.params.id, req.body ?? {});
+    res.json(product);
+  } catch (err) {
+    const status = err.status ?? 500;
+    res.status(status).json({ error: err.message ?? 'Update failed' });
+  }
+});
+
 app.post('/api/reset', (_req, res) => {
   usersStore.reset();
   res.json({ ok: true, message: 'Users reset to seed data' });
@@ -56,5 +71,7 @@ app.listen(PORT, () => {
   console.log('  DELETE /api/users');
   console.log('  PATCH  /api/users/:id');
   console.log('  GET    /api/orders?offset&limit&sort&filter');
+  console.log('  GET    /api/products?offset&limit&sort&filter');
+  console.log('  PATCH  /api/products/:id');
   console.log('  POST   /api/reset (restore user seed data)');
 });

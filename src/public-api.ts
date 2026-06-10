@@ -4,6 +4,7 @@
 
 export { AgGridBase } from './lib/core/ag-grid-base';
 export { ColumnDefinitionFactory } from './lib/core/column-definition.factory';
+export { ColumnSchemaBuilder } from './lib/columns/column-schema-builder';
 export { GridConfigBuilder } from './lib/core/grid-config.builder';
 export { PluginRegistry } from './lib/core/grid-plugin';
 export type { GridPlugin } from './lib/core/grid-plugin';
@@ -32,6 +33,24 @@ export type {
   RowData,
   TextColumnOptions,
 } from './lib/models/ag-grid.types';
+
+export type {
+  ColumnGroupSchema,
+  ColumnKind,
+  ColumnSchema,
+  FieldPipeline,
+  FieldPipelineMap,
+} from './lib/columns/column-schema.types';
+export type { BooleanKeys } from './lib/columns/type-utils';
+export {
+  booleanValueSetter,
+  moneyCentsValueGetter,
+  moneyCentsValueParser,
+  moneyCentsValueSetter,
+  moneyDisplayFormatter,
+  percentDisplayFormatter,
+  percentValueParser,
+} from './lib/columns/value-setters';
 
 export {
   applyFieldValidation,

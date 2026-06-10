@@ -17,7 +17,8 @@
     "lib": ["ES2022", "dom"],
     "baseUrl": ".",
     "paths": {
-      "@app/ag-grid-common": ["src/public-api.ts"]
+      "@app/ag-grid-common": ["src/public-api.ts"],
+      "@app/ag-grid-examples/*": ["src/lib/examples/*"]
     }
   },
   "angularCompilerOptions": {

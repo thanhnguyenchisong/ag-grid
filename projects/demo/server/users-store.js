@@ -1,13 +1,13 @@
-/** @typedef {{ id: string; name: string; email: string; createdAt: string }} UserRow */
+/** @typedef {{ id: string; name: string; email: string; createdAt: string; isActive: boolean }} UserRow */
 
 /** @type {UserRow[]} */
 const INITIAL = [
-  { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', createdAt: '2025-01-15' },
-  { id: '2', name: 'Grace Hopper', email: 'grace@example.com', createdAt: '2025-02-20' },
-  { id: '3', name: 'Alan Turing', email: 'alan@example.com', createdAt: '2025-03-10' },
-  { id: '4', name: 'Katherine Johnson', email: 'katherine@example.com', createdAt: '2025-04-05' },
-  { id: '5', name: 'Tim Berners-Lee', email: 'tim@example.com', createdAt: '2025-05-18' },
-  { id: '6', name: 'Invalid Email', email: 'not-an-email', createdAt: '2025-06-01' },
+  { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', createdAt: '2025-01-15', isActive: true },
+  { id: '2', name: 'Grace Hopper', email: 'grace@example.com', createdAt: '2025-02-20', isActive: true },
+  { id: '3', name: 'Alan Turing', email: 'alan@example.com', createdAt: '2025-03-10', isActive: false },
+  { id: '4', name: 'Katherine Johnson', email: 'katherine@example.com', createdAt: '2025-04-05', isActive: true },
+  { id: '5', name: 'Tim Berners-Lee', email: 'tim@example.com', createdAt: '2025-05-18', isActive: true },
+  { id: '6', name: 'Invalid Email', email: 'not-an-email', createdAt: '2025-06-01', isActive: false },
 ];
 
 /** @type {UserRow[]} */

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import type { UserRow } from '../users-grid.service';
+import type { UserRow } from '../user-row.model';
 
 @Injectable({ providedIn: 'root' })
 export class UsersApiService {

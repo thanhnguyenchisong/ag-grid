@@ -60,6 +60,23 @@ export class ColumnDefinitionFactory<TData extends RowData = RowData> {
     });
   }
 
+  boolean(
+    field: keyof TData & string,
+    overrides: Partial<ColDef<TData>> = {},
+  ): ColDef<TData> {
+    return this.text({
+      field,
+      filter: 'agSetColumnFilter',
+      extra: {
+        editable: true,
+        cellRenderer: 'agCheckboxCellRenderer',
+        cellEditor: 'agCheckboxCellEditor',
+        filterParams: { values: [true, false] },
+        ...overrides,
+      },
+    });
+  }
+
   date(
     field: keyof TData & string,
     overrides: Partial<ColDef<TData>> & {

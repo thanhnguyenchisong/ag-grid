@@ -7,11 +7,15 @@ import { Injectable } from '@angular/core';
 import type { ColDef } from 'ag-grid-community';
 import { AgGridBase } from '../core/ag-grid-base';
 
-export interface UserRow {
+export interface UserRowFields {
   id: string;
   name: string;
   email: string;
   createdAt: string;
+  isActive: boolean;
+}
+
+export interface UserRow extends UserRowFields {
   [key: string]: unknown;
 }
 
@@ -27,6 +31,7 @@ export class UsersGridService extends AgGridBase<UserRow> {
     return [
       this.columns.text({ field: 'name', flex: 2 }),
       this.columns.text({ field: 'email', flex: 2 }),
+      this.columns.boolean('isActive'),
       this.columns.date('createdAt'),
     ];
   }
@@ -45,7 +50,7 @@ export class UsersGridService extends AgGridBase<UserRow> {
     //   error: () => this.hideLoading(),
     // });
     this.setRowData([
-      { id: '1', name: 'Ada', email: 'ada@example.com', createdAt: '2025-01-01' },
+      { id: '1', name: 'Ada', email: 'ada@example.com', createdAt: '2025-01-01', isActive: true },
     ]);
     this.hideLoading();
   }

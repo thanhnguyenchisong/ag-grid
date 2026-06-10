@@ -2,14 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import type { ColDef, GridOptions } from 'ag-grid-community';
 import { AgGridBase, email } from '@app/ag-grid-common';
 import { UsersApiService } from './api/users-api.service';
+import type { UserRow } from './user-row.model';
 
-export interface UserRow {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: string;
-  [key: string]: unknown;
-}
+export type { UserRow } from './user-row.model';
 
 @Injectable()
 export class UsersGridService extends AgGridBase<UserRow> {
@@ -56,6 +51,7 @@ export class UsersGridService extends AgGridBase<UserRow> {
         validate: email<UserRow>('Invalid email'),
         extra: { editable: true },
       }),
+      this.columns.boolean('isActive'),
       this.columns.date('createdAt'),
     ];
   }

@@ -149,7 +149,7 @@ Or use `registerAgGridEnterpriseModules(AllEnterpriseModule)` from `@app/ag-grid
 
 ## Recipe: new table in 5 steps
 
-1. **Row interface** — include `[key: string]: unknown` for `RowData` compatibility.
+1. **Row model** — `XxxRowFields` (known fields) + `XxxRow extends XxxRowFields` with `[key: string]: unknown` for grid dynamic access.
 2. **`XxxGridService extends AgGridBase<XxxRow>`** — config in `super({ ... })`.
 3. **`buildColumnDefs()`** — columns via `this.columns.*`.
 4. **Load data** — pick one:
@@ -324,6 +324,7 @@ Low-level: `applyFieldValidation(colDef, validator)` from `@app/ag-grid-common`.
 | `checkbox()` | `this.columns.checkbox()` | Selection column |
 | `actions({ onCellClicked })` | Edit / Delete column | Pinned right |
 | `fromFields(['a','b'])` | Auto text columns | Quick tables |
+| `ColumnSchemaBuilder` + `ColumnSchema[]` | Many columns + mixed format logic | See [complex-product-grid.service.example.ts](src/lib/examples/complex-product-grid.service.example.ts) |
 
 ```typescript
 // Custom renderer
@@ -474,6 +475,10 @@ More detail: [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 | [server/index.js](projects/demo/server/index.js) | Sample Express backend (users + orders) |
 | [orders-ssrm-grid.service.example.ts](src/lib/examples/orders-ssrm-grid.service.example.ts) | SSRM / Enterprise template |
 | [users-grid.service.example.ts](src/lib/examples/users-grid.service.example.ts) | Copy-paste starter |
+| [complex-product-grid.service.example.ts](src/lib/examples/complex-product-grid.service.example.ts) | **~30 cols** — client-side groups + pipelines |
+| [complex-product-server-grid.service.example.ts](src/lib/examples/complex-product-server-grid.service.example.ts) | **Same columns** — infinite / server-driven |
+| [product-columns.schema.example.ts](src/lib/examples/product-columns.schema.example.ts) | Grouped column schema for complex example |
+| [EXAMPLES-COVERAGE.md](src/lib/examples/EXAMPLES-COVERAGE.md) | Coverage matrix — what is / isn't in the example |
 | [ag-grid-base.ts](src/lib/core/ag-grid-base.ts) | Base class source |
 
 ---
@@ -485,12 +490,13 @@ npm install
 npm start              # Sample API (:3000) + demo (:4200)
 ```
 
-Open http://localhost:4200/ — two tabs:
+Open http://localhost:4200/ — three tabs:
 
 | Tab | Service | Pattern |
 |-----|---------|---------|
-| **Client-side (Users)** | `UsersGridService` | `setRowData()` + client pagination |
-| **Server-driven (Orders)** | `OrdersServerGridService` | `createInfiniteDatasource()` — 500 rows |
+| **Client (Users)** | `UsersGridService` | `setRowData()` + client pagination |
+| **Server (Orders)** | `OrdersServerGridService` | Simple infinite scroll — 5 cols |
+| **Server complex (Products)** | `ProductsServerGridService` | `ColumnSchemaBuilder.buildGroups()` — ~30 cols, 500 rows |
 
 API contract: [projects/demo/API.md](projects/demo/API.md). Backend: [projects/demo/server/](projects/demo/server/).
 
