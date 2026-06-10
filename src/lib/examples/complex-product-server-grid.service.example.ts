@@ -26,8 +26,9 @@ import { ColumnSchemaBuilder } from '../columns/column-schema-builder';
 import { PRODUCT_COLUMN_GROUPS } from './product-columns.schema.example';
 import {
   PRODUCT_DEPENDENT_COLUMNS,
-  PRODUCT_PIPELINES,
+  createProductPipelines,
 } from './product-pipelines.example';
+import type { ProductColumnDeps } from './product-column-deps.example';
 import type { ProductRow } from './product-row.model.example';
 
 /** Map grid request → your API (demo: products-api.service.ts). */
@@ -53,6 +54,8 @@ export class ComplexProductServerGridService extends AgGridBase<ProductRow> {
 
   constructor(
     private readonly productsApi: ProductsApiLike,
+    /** Inject app services — replaces grid `context` with many services. */
+    private readonly columnDeps: ProductColumnDeps,
   ) {
     super({
       id: 'products-server-grid',
@@ -96,7 +99,10 @@ export class ComplexProductServerGridService extends AgGridBase<ProductRow> {
   /** Same column defs as client grid — schema builder is row-model agnostic. */
   protected override buildColumnDefs(): ColDef<ProductRow>[] {
     return [
-      ...this.schemaBuilder.buildGroups(PRODUCT_COLUMN_GROUPS, PRODUCT_PIPELINES),
+      ...this.schemaBuilder.buildGroups(
+        PRODUCT_COLUMN_GROUPS,
+        createProductPipelines(this.columnDeps),
+      ),
       this.columns.actions({
         headerName: '⋯',
         width: 72,

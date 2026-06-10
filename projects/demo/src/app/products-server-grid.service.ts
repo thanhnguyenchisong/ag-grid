@@ -7,12 +7,10 @@ import type {
 } from 'ag-grid-community';
 import { AgGridBase, ColumnSchemaBuilder } from '@app/ag-grid-common';
 import { PRODUCT_COLUMN_GROUPS } from '@app/ag-grid-examples/product-columns.schema.example';
-import {
-  PRODUCT_DEPENDENT_COLUMNS,
-  PRODUCT_PIPELINES,
-} from '@app/ag-grid-examples/product-pipelines.example';
+import { PRODUCT_DEPENDENT_COLUMNS } from '@app/ag-grid-examples/product-pipelines.example';
 import { ProductsApiService } from './api/products-api.service';
 import type { ProductRow } from './product-row.model';
+import { ProductColumnHelpersService } from './products/product-column-helpers.service';
 
 /**
  * Live demo — complex server-driven grid (~30 cols, column groups, pipelines).
@@ -21,6 +19,7 @@ import type { ProductRow } from './product-row.model';
 @Injectable()
 export class ProductsServerGridService extends AgGridBase<ProductRow> {
   private readonly productsApi = inject(ProductsApiService);
+  private readonly columnHelpers = inject(ProductColumnHelpersService);
   private readonly schemaBuilder = new ColumnSchemaBuilder<ProductRow>(this.columns);
 
   constructor() {
@@ -64,7 +63,10 @@ export class ProductsServerGridService extends AgGridBase<ProductRow> {
 
   protected override buildColumnDefs(): ColDef<ProductRow>[] {
     return [
-      ...this.schemaBuilder.buildGroups(PRODUCT_COLUMN_GROUPS, PRODUCT_PIPELINES),
+      ...this.schemaBuilder.buildGroups(
+        PRODUCT_COLUMN_GROUPS,
+        this.columnHelpers.getPipelines(),
+      ),
       this.columns.actions({
         headerName: '⋯',
         width: 72,

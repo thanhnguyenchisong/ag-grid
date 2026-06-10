@@ -10,7 +10,7 @@ import { ColumnSchemaBuilder } from '../columns/column-schema-builder';
 import { PRODUCT_COLUMN_GROUPS } from './product-columns.schema.example';
 import {
   PRODUCT_DEPENDENT_COLUMNS,
-  PRODUCT_PIPELINES,
+  createProductPipelines,
 } from './product-pipelines.example';
 import type { ProductRow } from './product-row.model.example';
 
@@ -33,7 +33,10 @@ export class ComplexProductGridService extends AgGridBase<ProductRow> {
   protected override buildColumnDefs(): ColDef<ProductRow>[] {
     return [
       this.columns.checkbox(),
-      ...this.schemaBuilder.buildGroups(PRODUCT_COLUMN_GROUPS, PRODUCT_PIPELINES),
+      ...this.schemaBuilder.buildGroups(
+        PRODUCT_COLUMN_GROUPS,
+        createProductPipelines(),
+      ),
       this.columns.actions({
         headerName: '⋯',
         width: 72,

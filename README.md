@@ -479,6 +479,7 @@ More detail: [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 | [complex-product-server-grid.service.example.ts](src/lib/examples/complex-product-server-grid.service.example.ts) | **Same columns** — infinite / server-driven |
 | [product-columns.schema.example.ts](src/lib/examples/product-columns.schema.example.ts) | Grouped column schema for complex example |
 | [EXAMPLES-COVERAGE.md](src/lib/examples/EXAMPLES-COVERAGE.md) | Coverage matrix — what is / isn't in the example |
+| [MIGRATE-CONTEXT-TO-SERVICES.md](src/lib/examples/MIGRATE-CONTEXT-TO-SERVICES.md) | **Legacy `context` + many services → column helpers** |
 | [ag-grid-base.ts](src/lib/core/ag-grid-base.ts) | Base class source |
 
 ---
