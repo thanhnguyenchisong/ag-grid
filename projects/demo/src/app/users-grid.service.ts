@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import type { ColDef, GridOptions } from 'ag-grid-community';
 import { AgGridBase, email } from '@app/ag-grid-common';
+import { UsersApiService } from './api/users-api.service';
 
 export interface UserRow {
   id: string;
@@ -10,17 +11,10 @@ export interface UserRow {
   [key: string]: unknown;
 }
 
-const MOCK_USERS: UserRow[] = [
-  { id: '1', name: 'Ada Lovelace', email: 'ada@example.com', createdAt: '2025-01-15' },
-  { id: '2', name: 'Grace Hopper', email: 'grace@example.com', createdAt: '2025-02-20' },
-  { id: '3', name: 'Alan Turing', email: 'alan@example.com', createdAt: '2025-03-10' },
-  { id: '4', name: 'Katherine Johnson', email: 'katherine@example.com', createdAt: '2025-04-05' },
-  { id: '5', name: 'Tim Berners-Lee', email: 'tim@example.com', createdAt: '2025-05-18' },
-  { id: '6', name: 'Invalid Email', email: 'not-an-email', createdAt: '2025-06-01' },
-];
-
 @Injectable()
 export class UsersGridService extends AgGridBase<UserRow> {
+  private readonly usersApi = inject(UsersApiService);
+
   constructor() {
     super({ id: 'users-grid', paginationPageSize: 10 });
   }
@@ -30,8 +24,25 @@ export class UsersGridService extends AgGridBase<UserRow> {
       ...super.getDefaultGridOptions(),
       onCellValueChanged: (e) => {
         const field = e.colDef.field;
-        if (!field || !e.node) return;
-        e.api.refreshCells({ rowNodes: [e.node], columns: [field], force: true });
+        if (!field || !e.node || e.oldValue === e.newValue) return;
+
+        const row = e.data;
+        this.usersApi.update(row.id, { [field]: e.newValue }).subscribe({
+          error: () => {
+            row[field] = e.oldValue;
+            e.api.refreshCells({
+              rowNodes: [e.node!],
+              columns: [field],
+              force: true,
+            });
+          },
+        });
+
+        e.api.refreshCells({
+          rowNodes: [e.node],
+          columns: [field],
+          force: true,
+        });
       },
     };
   }
@@ -55,19 +66,25 @@ export class UsersGridService extends AgGridBase<UserRow> {
 
   loadUsers(): void {
     this.showLoading();
-    this.setRowData([...MOCK_USERS]);
-    this.hideLoading();
+    this.usersApi.getAll().subscribe({
+      next: (rows) => {
+        this.setRowData(rows);
+        this.hideLoading();
+      },
+      error: () => this.hideLoading(),
+    });
   }
 
   deleteSelected(): void {
     const selected = this.getSelectedRows();
     if (!selected.length) return;
 
-    const ids = new Set(selected.map((r) => r.id));
-    const remaining = MOCK_USERS.filter((u) => !ids.has(u.id));
-    MOCK_USERS.length = 0;
-    MOCK_USERS.push(...remaining);
-    this.loadUsers();
+    const ids = selected.map((r) => r.id);
+    this.showLoading();
+    this.usersApi.deleteMany(ids).subscribe({
+      next: () => this.loadUsers(),
+      error: () => this.hideLoading(),
+    });
   }
 
   override get themeClass(): string {

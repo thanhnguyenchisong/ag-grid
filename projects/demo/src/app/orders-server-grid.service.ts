@@ -1,19 +1,17 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import type {
   ColDef,
   GridOptions,
   IDatasource,
 } from 'ag-grid-community';
 import { AgGridBase } from '@app/ag-grid-common';
+import { OrdersApiService } from './api/orders-api.service';
 import type { OrderRow } from './order-row.model';
-import { delay, ORDERS_MOCK_DB, queryOrdersMock } from './orders-mock.store';
 
-/**
- * Server-driven orders grid using Infinite Row Model (AG Grid Community).
- * For full SSRM use {@link createServerSideDatasource} with AG Grid Enterprise.
- */
 @Injectable()
 export class OrdersServerGridService extends AgGridBase<OrderRow> {
+  private readonly ordersApi = inject(OrdersApiService);
+
   constructor() {
     super({
       id: 'orders-server-grid',
@@ -30,28 +28,24 @@ export class OrdersServerGridService extends AgGridBase<OrderRow> {
   protected override getDefaultGridOptions(): GridOptions<OrderRow> {
     return {
       ...super.getDefaultGridOptions(),
-      // Data loads via datasource — do not call setRowData in onGridReady.
       rowSelection: { mode: 'multiRow', checkboxes: true, headerCheckbox: true },
     };
   }
 
   protected override createInfiniteDatasource(): IDatasource {
     return {
-      rowCount: ORDERS_MOCK_DB.length,
       getRows: (params) => {
-        void delay(300).then(() => {
-          try {
-            const { rows, total } = queryOrdersMock({
-              startRow: params.startRow,
-              endRow: params.endRow,
-              sortModel: params.sortModel,
-              filterModel: params.filterModel,
-            });
-            params.successCallback(rows, total);
-          } catch {
-            params.failCallback();
-          }
-        });
+        this.ordersApi
+          .getPage({
+            startRow: params.startRow,
+            endRow: params.endRow,
+            sortModel: params.sortModel,
+            filterModel: params.filterModel,
+          })
+          .subscribe({
+            next: (res) => params.successCallback(res.items, res.total),
+            error: () => params.failCallback(),
+          });
       },
     };
   }

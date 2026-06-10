@@ -22,7 +22,9 @@
     }
   },
   "scripts": {
-    "start": "ng serve demo",
+    "start": "concurrently -n api,demo -c blue,green \"npm run start:api\" \"npm run start:demo\"",
+    "start:demo": "ng serve demo",
+    "start:api": "node projects/demo/server/index.js",
     "build": "npm run build:lib && ng build demo",
     "build:lib": "ng-packagr -p ng-package.json",
     "build:demo": "ng build demo"
@@ -37,6 +39,9 @@
     "@angular/platform-browser": "^20.0.0",
     "ag-grid-angular": "^35.3.0",
     "ag-grid-community": "^35.3.0",
+    "concurrently": "^9.1.2",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
     "ng-packagr": "^20.0.0",
     "rxjs": "^7.8.0",
     "typescript": "~5.8.0",

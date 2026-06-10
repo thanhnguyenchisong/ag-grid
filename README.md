@@ -471,7 +471,7 @@ More detail: [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 |------|---------|
 | [users-grid.service.ts](projects/demo/src/app/users-grid.service.ts) | Client-side + `setRowData()` |
 | [orders-server-grid.service.ts](projects/demo/src/app/orders-server-grid.service.ts) | Infinite / Community |
-| [orders-mock.store.ts](projects/demo/src/app/orders-mock.store.ts) | Mock API (sort, filter, blocks) |
+| [server/index.js](projects/demo/server/index.js) | Sample Express backend (users + orders) |
 | [orders-ssrm-grid.service.example.ts](src/lib/examples/orders-ssrm-grid.service.example.ts) | SSRM / Enterprise template |
 | [users-grid.service.example.ts](src/lib/examples/users-grid.service.example.ts) | Copy-paste starter |
 | [ag-grid-base.ts](src/lib/core/ag-grid-base.ts) | Base class source |
@@ -482,7 +482,7 @@ More detail: [docs/PLAN-AG-GRID-COMMON.md](docs/PLAN-AG-GRID-COMMON.md)
 
 ```bash
 npm install
-npm start
+npm start              # Sample API (:3000) + demo (:4200)
 ```
 
 Open http://localhost:4200/ — two tabs:
@@ -490,7 +490,9 @@ Open http://localhost:4200/ — two tabs:
 | Tab | Service | Pattern |
 |-----|---------|---------|
 | **Client-side (Users)** | `UsersGridService` | `setRowData()` + client pagination |
-| **Server-driven (Orders)** | `OrdersServerGridService` | `createInfiniteDatasource()` — 500 mock rows |
+| **Server-driven (Orders)** | `OrdersServerGridService` | `createInfiniteDatasource()` — 500 rows |
+
+API contract: [projects/demo/API.md](projects/demo/API.md). Backend: [projects/demo/server/](projects/demo/server/).
 
 > SSRM (`createServerSideDatasource`) requires **AG Grid Enterprise** + license. The Orders demo uses **Infinite Row Model** (Community) with the same server-driven loading pattern.
 
